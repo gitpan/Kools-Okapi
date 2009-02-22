@@ -2,5 +2,10 @@
 =============================
 
 
+2.6.3.L3.002  2009/02/22
+              - Now have a working tradekast and kis client (see the test
+                scripts). Still basic/strict minimum functionality is supported
+                but still a proper working client is possible.
+
 2.6.3.L3.001  2009/02/17
               - Initial release

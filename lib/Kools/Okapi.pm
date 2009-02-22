@@ -1,3 +1,25 @@
+#
+#   This file is part of the Kools::Okapi package
+#   a Perl C wrapper for the Thomson Reuters Kondor+ OKAPI api.
+#
+#   Copyright (C) 2009 Gabriel Galibourg
+#
+#   The Kools::Okapi package is free software; you can redistribute it and/or
+#   modify it under the terms of the Artistic License 2.0 as published by
+#   The Perl Foundation; either version 2.0 of the License, or
+#   (at your option) any later version.
+#
+#   The Kools::Okapi package is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   Perl Artistic License for more details.
+#
+#   You should have received a copy of the Artistic License along with
+#   this package.  If not, see <http://www.perlfoundation.org/legal/>.
+# 
+#
+
+
 package Kools::Okapi;
 
 use strict;
@@ -249,12 +271,28 @@ require AutoLoader;
 # Items to export into callers namespace by default. Note: do not export
 # names by default without a very good reason. Use EXPORT_OK instead.
 # Do not simply export all your public functions/methods/constants.
-@EXPORT_OK = qw( 
+@EXPORT_OK = qw(
+
 	
 );
-@EXPORT = qw(ICC_create ICC_set ICC_main_loop);
+@EXPORT = qw(
+      ICC_create
+      ICC_set
+      ICC_get
+      ICC_main_loop
+      
 
-$VERSION = '2.6.3.L3.001';
+      ICC_DataMsg_Buffer_get
+      ICC_DataMsg_init
+      ICC_DataMsg_set
+      ICC_DataMsg_get
+      ICC_DataMsg_Integer_set
+      ICC_DataMsg_Buffer_set
+      
+      ICC_DataMsg_send_to_server
+);
+
+$VERSION = '2.6.3.L3.002';
 
 bootstrap Kools::Okapi $VERSION;
 
