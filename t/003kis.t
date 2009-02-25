@@ -112,16 +112,38 @@ sub dataMsg_callBack($$$)
     return Kools::Okapi::ICC_OK;
 }
 
+sub disconnect_callBack($)
+{
+    print "In disconnect callBack  ";
+    my $io=shift;
+    print "  $io\n";
+    
+    return Kools::Okapi::ICC_OK;
+}
+
+sub reconnect_callBack($)
+{
+    print "In reconnect callBack  ";
+    my $io=shift;
+    print "  $io\n";
+    
+    return Kools::Okapi::ICC_OK;
+}
+
+
 print "ICC_create:\n";
 $icc = ICC_create(
                   Kools::Okapi::ICC_CLIENT_NAME,               'KPLUSIMPORT',
                   Kools::Okapi::ICC_KIS_HOST_NAMES,            'localhost',
                   Kools::Okapi::ICC_PORT_NAME,                 'kis_port',
 
-                  Kools::Okapi::ICC_SELECT_TIMEOUT,             1,
+                  Kools::Okapi::ICC_SELECT_TIMEOUT,             15,
                   Kools::Okapi::ICC_SELECT_TIMEOUT_CALLBACK,    \&selectTimeout_callBack,
-                  Kools::Okapi::ICC_DATA_MSG_CALLBACK,          \&dataMsg_callBack);
-
+                  Kools::Okapi::ICC_DATA_MSG_CALLBACK,          \&dataMsg_callBack,
+                  Kools::Okapi::ICC_DISCONNECT_CALLBACK,        \&disconnect_callBack,
+                  Kools::Okapi::ICC_RECONNECT_CALLBACK,         \&reconnect_callBack);
+                  
+print "icc=$icc\n";
 print "ok 1\n";
 #ICC_set($icc,Kools::Okapi::ICC_CLIENT_READY, 1);
 print "ok 2\n";

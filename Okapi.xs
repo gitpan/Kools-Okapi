@@ -28,7 +28,7 @@
 
 typedef struct {
     ICC_opaque   iccObj;
-    long         clientData;
+    SV*          clientData;
 
     SV*          data_msg_callback;
     SV*          set_fds_callback;
@@ -80,7 +80,7 @@ _data_msg_callback(ICC_opaque cd, char *key, ICC_Data_Msg_Type_t type)
 
 /* ================================
  *
- * _select _timeout_callback
+ * _select_timeout_callback
  *
  * Generic callback registered for ICC_SELECT_TIMEOUT_CALLBACK events.
  */
@@ -113,12 +113,167 @@ _select_timeout_callback(ICC_opaque cd)
 }
 
 
-int
-process_createAndSetParameters(perl_iccObj_t *picc, int key, SV* attrib, SV* attrib2, SV* attrib3)
+/* ================================
+ *
+ * _select_signal_callback
+ *
+ * Generic callback registered for ICC_SELECT_SIGNAL_CALLBACK events.
+ */
+static ICC_status_t
+_select_signal_callback(ICC_opaque cd)
+{
+    perl_iccObj_t *picc=(perl_iccObj_t*)cd;
+    dSP;
+
+    int count;
+    int retval;
+    
+    
+    ENTER;SAVETMPS;
+    PUSHMARK(SP);
+    XPUSHs (sv_2mortal (newSViv ( cd)));
+    PUTBACK;
+
+    count = call_sv(picc->select_signal_callback, G_SCALAR);
+    SPAGAIN;
+
+    if ( count!= 1 )
+        croak ("icc_select_signal_callback() returned more than one argument\n");
+
+    retval = POPi;
+    PUTBACK;
+    FREETMPS;
+    LEAVE;
+    return retval;
+}
+
+
+/* ================================
+ *
+ * _select_msg_callback
+ *
+ * Generic callback registered for ICC_SELECT_MSG_CALLBACK events.
+ */
+static ICC_status_t
+_select_msg_callback(ICC_opaque cd, fd_set *r_fds, fd_set *w_fds, fd_set *e_fds)
+{
+    perl_iccObj_t *picc=(perl_iccObj_t*)cd;
+    dSP;
+
+    int count;
+    int retval;
+    
+    
+    ENTER;SAVETMPS;
+    PUSHMARK(SP);
+    XPUSHs (sv_2mortal (newSViv ( cd)));
+    // TODO
+    // here we need to push vecs() where each bit set to one indicates an active channel - this makes it identical to the select() function of perl.
+    // not that vec manipulates a string so it should not be too hard to reproduce here ...
+    // note that fd_set caontains up to FD_SETSIZE bits.
+    // another alternative is to just read the bits and store them into an array a bit the way poll() does - this is probably the most elegant.
+    //int i;
+    //for (i=0 ; i<FD_SETSIZE ; ++i) ;
+    croak("Sorry but icc_select_msg_callback() is not fully functional yet ...\n");
+    PUTBACK;
+
+    count = call_sv(picc->select_msg_callback, G_SCALAR);
+    SPAGAIN;
+
+    if ( count!= 1 )
+        croak ("icc_select_msg_callback() returned more than one argument\n");
+
+    retval = POPi;
+    PUTBACK;
+    FREETMPS;
+    LEAVE;
+    return retval;
+}
+
+
+/* ================================
+ *
+ * _disconnect_callback
+ *
+ * Generic callback registered for ICC_DISCONNECT_CALLBACK events.
+ */
+static ICC_status_t
+_disconnect_callback(ICC_opaque cd)
+{
+    perl_iccObj_t *picc=(perl_iccObj_t*)cd;
+    dSP;
+
+    int count;
+    int retval;
+    
+    
+    ENTER;SAVETMPS;
+    PUSHMARK(SP);
+    XPUSHs (sv_2mortal (newSViv ( cd)));
+    PUTBACK;
+
+    count = call_sv(picc->disconnect_callback, G_SCALAR);
+    SPAGAIN;
+
+    if ( count!= 1 )
+        croak ("icc_disconnect_callback() returned more than one argument\n");
+
+    retval = POPi;
+    PUTBACK;
+    FREETMPS;
+    LEAVE;
+    return retval;
+}
+
+
+/* ================================
+ *
+ * _reconnect_callback
+ *
+ * Generic callback registered for ICC_RECONNECT_CALLBACK events.
+ */
+static ICC_status_t
+_reconnect_callback(ICC_opaque cd)
+{
+    perl_iccObj_t *picc=(perl_iccObj_t*)cd;
+    dSP;
+
+    int count;
+    int retval;
+    
+    
+    ENTER;SAVETMPS;
+    PUSHMARK(SP);
+    XPUSHs (sv_2mortal (newSViv ( cd)));
+    PUTBACK;
+
+    count = call_sv(picc->reconnect_callback, G_SCALAR);
+    SPAGAIN;
+
+    if ( count!= 1 )
+        croak ("icc_reconnect_callback() returned more than one argument\n");
+
+    retval = POPi;
+    PUTBACK;
+    FREETMPS;
+    LEAVE;
+    return retval;
+}
+
+
+/* ================================
+ *
+ * processCreateAndSetParameters
+ *
+ * This is a function called by both ICC_set or ICC_create to process their parameters.
+ * The function returns the number of parameters to pop of the stack.
+ */
+static int
+processCreateAndSetParameters(perl_iccObj_t *picc, int key, SV* attrib, SV* attrib2, SV* attrib3)
 {
     int skipStack=1; // default is just one parameter to take off the stack
     
-    printf("key=%d  attrib=%ld\n",key,attrib);
+    //printf("key=%d  attrib=%ld\n",key,attrib);
     switch (key) {
         // these attributes do not take any parameter
         case ICC_DISCONNECT:
@@ -133,7 +288,7 @@ process_createAndSetParameters(perl_iccObj_t *picc, int key, SV* attrib, SV* att
         case ICC_SELECT_TIMEOUT:
             {
                 long val=SvIV(attrib);
-                printf("%d(INT): %d\n",key,val);
+                //printf("%d(INT): %d\n",key,val);
                 if (ICC_OK != ICC_set(picc->iccObj,key,val,NULL,NULL))
                     croak("ICC_set(%d,%d) failed ...\n",key,val);
             }
@@ -147,7 +302,7 @@ process_createAndSetParameters(perl_iccObj_t *picc, int key, SV* attrib, SV* att
            {
                STRLEN l;
                char *val=(char*)SvPV(attrib,l);
-               printf("%d(STR): %s\n",key,val);
+               //printf("%d(STR): %s\n",key,val);
                if (ICC_OK != ICC_set(picc->iccObj,key,val,NULL,NULL))
                     croak("ICC_set(%d,%s) failed ...\n",key,val);
             }
@@ -155,10 +310,7 @@ process_createAndSetParameters(perl_iccObj_t *picc, int key, SV* attrib, SV* att
 
         // a long (pointer, etc...)
         case ICC_CLIENT_DATA:
-            {
-                long l=(long)SvIV(attrib);
-                picc->clientData=l;
-            }
+            picc->clientData=attrib;
             break;
 
         // takes an array of strings
@@ -167,8 +319,8 @@ process_createAndSetParameters(perl_iccObj_t *picc, int key, SV* attrib, SV* att
                 char *fn;
                 STRLEN l;
                 I32 n, numStr=av_len((AV*)SvRV(attrib));
-                char *ar[100];
-                for (n=0 ; n<=numStr && n<=96 ; ++n) {
+                char *ar[104];
+                for (n=0 ; n<=numStr && n<=99 ; ++n) {
                     fn=SvPV(*av_fetch((AV*)SvRV(attrib),n,0),l);
                     ar[n]=strdup(fn);
                 }
@@ -176,10 +328,16 @@ process_createAndSetParameters(perl_iccObj_t *picc, int key, SV* attrib, SV* att
                 ar[n+1]=NULL;
                         
                 if (ICC_OK != ICC_set(picc->iccObj,ICC_CLIENT_RECEIVE,
-                                      ar[ 0],ar[ 1],ar[ 2],ar[ 3],ar[ 4],
-                                      ar[ 5],ar[ 6],ar[ 7],ar[ 8],ar[ 9],
-                                      ar[10],ar[11],ar[12],ar[13],ar[14],
-                                      ar[15],ar[16],ar[17],ar[18],ar[19],
+                                      ar[ 0],ar[ 1],ar[ 2],ar[ 3],ar[ 4],ar[ 5],ar[ 6],ar[ 7],ar[ 8],ar[ 9],
+                                      ar[10],ar[11],ar[12],ar[13],ar[14],ar[15],ar[16],ar[17],ar[18],ar[19],
+                                      ar[20],ar[21],ar[22],ar[23],ar[24],ar[25],ar[26],ar[27],ar[28],ar[29],
+                                      ar[30],ar[31],ar[32],ar[33],ar[34],ar[35],ar[36],ar[37],ar[38],ar[39],
+                                      ar[40],ar[41],ar[42],ar[43],ar[44],ar[45],ar[46],ar[47],ar[48],ar[49],
+                                      ar[50],ar[51],ar[52],ar[53],ar[54],ar[55],ar[56],ar[57],ar[58],ar[59],
+                                      ar[60],ar[61],ar[62],ar[63],ar[64],ar[65],ar[66],ar[67],ar[68],ar[69],
+                                      ar[70],ar[71],ar[72],ar[73],ar[74],ar[75],ar[76],ar[77],ar[78],ar[79],
+                                      ar[80],ar[81],ar[82],ar[83],ar[84],ar[85],ar[86],ar[87],ar[88],ar[89],
+                                      ar[90],ar[91],ar[92],ar[93],ar[94],ar[95],ar[96],ar[97],ar[98],ar[99],
                                       NULL,NULL)) {
                     croak("ICC_set(ICC_CLIENT_RECEIVE,....) failed\n");
                 }
@@ -194,17 +352,37 @@ process_createAndSetParameters(perl_iccObj_t *picc, int key, SV* attrib, SV* att
             break;
                      
         case ICC_SET_FDS_CALLBACK: //TODO
+            croak("ICC_set(ICC_SET_FDS_CALLBACK,...) not yet implemented, sorry...");
             break;
+
         case ICC_SELECT_TIMEOUT_CALLBACK:
             if (ICC_OK != ICC_set(picc->iccObj,key,_select_timeout_callback,NULL))
                 croak("ICC_set(ICC_SELECT_TIMEOUT_CALLBACK,....) failed\n");
             sv_setsv (picc->select_timeout_callback, attrib);
             break;
         
-        case ICC_SELECT_SIGNAL_CALLBACK: //TODO
-        case ICC_SELECT_MSG_CALLBACK: //TODO
-        case ICC_DISCONNECT_CALLBACK: //TODO
-        case ICC_RECONNECT_CALLBACK: //TODO
+        case ICC_SELECT_SIGNAL_CALLBACK:
+            if (ICC_OK != ICC_set(picc->iccObj,key,_select_signal_callback,NULL))
+                croak("ICC_set(ICC_SELECT_SIGNAL_CALLBACK,....) failed\n");
+            sv_setsv (picc->select_signal_callback, attrib);
+            break;
+
+        case ICC_SELECT_MSG_CALLBACK:
+            if (ICC_OK != ICC_set(picc->iccObj,key,_select_msg_callback,NULL))
+                croak("ICC_set(ICC_SELECT_MSG_CALLBACK,....) failed\n");
+            sv_setsv (picc->select_msg_callback, attrib);
+            break;
+
+        case ICC_DISCONNECT_CALLBACK:
+            if (ICC_OK != ICC_set(picc->iccObj,key,_disconnect_callback,NULL))
+                croak("ICC_set(ICC_DISCONNECT_CALLBACK,....) failed\n");
+            sv_setsv (picc->disconnect_callback, attrib);
+            break;
+
+        case ICC_RECONNECT_CALLBACK:
+            if (ICC_OK != ICC_set(picc->iccObj,key,_reconnect_callback,NULL))
+                croak("ICC_set(ICC_RECONNECT_CALLBACK,....) failed\n");
+            sv_setsv (picc->reconnect_callback, attrib);
             break;
 
         // send data to server
@@ -234,9 +412,13 @@ process_createAndSetParameters(perl_iccObj_t *picc, int key, SV* attrib, SV* att
 }
 
 
+
+
 MODULE = Kools::Okapi        PACKAGE = Kools::Okapi
 
-
+#
+# ============================================== ICC_create
+#
 perl_iccObj_t *
 ICC_create(fArg,...)
     ICC_option_t fArg = NO_INIT
@@ -274,7 +456,7 @@ ICC_create(fArg,...)
             SV* p1 = (i+1<items ? ST(i+1) : NULL);
             SV* p2 = (i+2<items ? ST(i+2) : NULL);
             SV* p3 = (i+3<items ? ST(i+3) : NULL);
-            int iSkip=process_createAndSetParameters(picc, key,p1,p2,p3);
+            int iSkip=processCreateAndSetParameters(picc, key,p1,p2,p3);
             i += iSkip+1;
         }
         RETVAL = picc;
@@ -282,6 +464,9 @@ ICC_create(fArg,...)
         RETVAL
 
 
+#
+# ============================================== ICC_set
+#
 ICC_status_t
 ICC_set(picc,fArg,...)
     perl_iccObj_t* picc
@@ -295,7 +480,7 @@ ICC_set(picc,fArg,...)
             SV* p1 = (i+1<items ? ST(i+1) : NULL);
             SV* p2 = (i+2<items ? ST(i+2) : NULL);
             SV* p3 = (i+3<items ? ST(i+3) : NULL);
-            int iSkip=process_createAndSetParameters(picc, key,p1,p2,p3);
+            int iSkip=processCreateAndSetParameters(picc, key,p1,p2,p3);
             i += iSkip+1;
         }
         RETVAL = ICC_OK;
@@ -303,6 +488,9 @@ ICC_set(picc,fArg,...)
         RETVAL
 
 
+#
+# ============================================== ICC_get
+#
 SV*
 ICC_get(picc,attrib)
     perl_iccObj_t* picc
@@ -310,6 +498,11 @@ ICC_get(picc,attrib)
     CODE:
         RETVAL=newSV(0);
         switch (attrib) {
+            // special attributes:
+            case ICC_CLIENT_DATA:
+                RETVAL=picc->clientData;
+                break;
+
             // these attributes take strings
             case ICC_PORT_NAME:
             case ICC_KIS_HOST_NAMES:
@@ -340,6 +533,9 @@ ICC_get(picc,attrib)
         RETVAL
 
 
+#
+# ============================================== ICC_main_loop
+#
 ICC_status_t
 ICC_main_loop(picc)
     perl_iccObj_t* picc;
@@ -349,34 +545,199 @@ ICC_main_loop(picc)
 	    RETVAL
 
 
-char *
-ICC_DataMsg_Buffer_get()
+#
+# ============================================== ICC_main_init
+#
+ICC_status_t
+ICC_main_init(picc)
+    perl_iccObj_t* picc;
     CODE:
-        //RETVAL=newSV(0);
-        RETVAL=ICC_DataMsg_Buffer_get();
-        //if (buf!=NULL)
-        //    sv_setpv(RETVAL,buf);
+        RETVAL = ICC_main_init(picc->iccObj);
     OUTPUT:
-        RETVAL
+	    RETVAL
 
 
+#
+# ============================================== ICC_main_start
+#
+ICC_status_t
+ICC_main_start(picc)
+    perl_iccObj_t* picc;
+    CODE:
+        RETVAL = ICC_main_start(picc->iccObj);
+    OUTPUT:
+	    RETVAL
+
+
+#
+# ============================================== ICC_main_select
+#
+int
+ICC_main_select(picc)
+    perl_iccObj_t* picc;
+    CODE:
+        RETVAL = ICC_main_select(picc->iccObj);
+    OUTPUT:
+	    RETVAL
+
+
+#
+# ============================================== ICC_main_timeout
+#
+ICC_status_t
+ICC_main_timeout(picc)
+    perl_iccObj_t* picc
+    CODE:
+        RETVAL = ICC_main_timeout(picc->iccObj);
+    OUTPUT:
+	    RETVAL
+
+
+#
+# ============================================== ICC_main_signal
+#
+ICC_status_t
+ICC_main_signal(picc)
+    perl_iccObj_t* picc
+    CODE:
+        RETVAL = ICC_main_signal(picc->iccObj);
+    OUTPUT:
+	    RETVAL
+
+
+#
+# ============================================== ICC_main_message
+#
+ICC_status_t
+ICC_main_message(picc)
+    perl_iccObj_t* picc
+    CODE:
+        RETVAL = ICC_main_message(picc->iccObj);
+    OUTPUT:
+	    RETVAL
+
+
+#
+# ============================================== ICC_main_disconnect
+#
+ICC_status_t
+ICC_main_disconnect(picc)
+    perl_iccObj_t* picc
+    CODE:
+        RETVAL = ICC_main_disconnect(picc->iccObj);
+    OUTPUT:
+	    RETVAL
+
+
+#
+# ============================================== ICC_multiple_main_start  TODO
+#
+ICC_status_t
+ICC_multiple_main_start(picc, nb)
+    perl_iccObj_t* picc
+    int            nb
+    CODE:
+        croak("ICC_multiple_main_start() not fully implemented yet...");
+        RETVAL = ICC_multiple_main_start(&picc->iccObj, 1);
+    OUTPUT:
+	    RETVAL
+
+
+#
+# ============================================== ICC_multiple_main_message  TODO
+#
+ICC_status_t
+ICC_multiple_main_message(picc, nb)
+    perl_iccObj_t* picc
+    int            nb
+    CODE:
+        croak("ICC_multiple_main_message() not fully implemented yet...");
+        RETVAL = ICC_multiple_main_message(&picc->iccObj, 1);
+    OUTPUT:
+	    RETVAL
+
+
+#
+# ============================================== ICC_multiple_main_loop  TODO
+#
+ICC_status_t
+ICC_multiple_main_loop(fPicc, nb)
+    perl_iccObj_t* fPicc = NO_INIT
+    CODE:
+        croak("ICC_multiple_main_loop() not fully implemented yet...");
+        RETVAL = ICC_multiple_main_loop(fPicc->iccObj, 1);
+    OUTPUT:
+	    RETVAL
+
+
+#
+# ============================================== ICC_DataMsg_init
+#
 void
 ICC_DataMsg_init(type, msgkey)
     ICC_Data_Msg_Type_t  type
     char *               msgkey
 
 
+#
+# ============================================== ICC_DataMsg_set
+#
 void
 ICC_DataMsg_set(key, value)
     char *  key
     char *  value
 
 
+#
+# ============================================== ICC_DataMsg_String_set
+#
+void
+ICC_DataMsg_String_set(key, value)
+    char *  key
+    char *  value
+
+
+#
+# ============================================== ICC_DataMsg_Integer_set
+#
 void
 ICC_DataMsg_Integer_set(key, value)
     char *  key
     int     value
 
+
+#
+# ============================================== ICC_DataMsg_Float_set
+#
+void
+ICC_DataMsg_Float_set(key, dec, value)
+    char *  key
+    int     dec
+    double  value
+
+
+#
+# ============================================== ICC_DataMsg_Date_set
+#
+void
+ICC_DataMsg_Date_set(key, value)
+    char *  key
+    char *  value
+
+
+#
+# ============================================== ICC_DataMsg_Choice_set
+#
+void
+ICC_DataMsg_Choice_set(key, val, value)
+    char *  key
+    int     val
+    char *  value
+
+
+#
+# ============================================== ICC_DataMsg_get
+#
 char *
 ICC_DataMsg_get(key)
     char *  key
@@ -399,11 +760,32 @@ ICC_DataMsg_get(key)
     OUTPUT:
         RETVAL
 
+
+#
+# ============================================== ICC_DataMsg_Buffer_set
+#
 void
 ICC_DataMsg_Buffer_set(buffer)
     char * buffer
     
 
+#
+# ============================================== ICC_DataMsg_Buffer_get
+#
+char *
+ICC_DataMsg_Buffer_get()
+    CODE:
+        //RETVAL=newSV(0);
+        RETVAL=ICC_DataMsg_Buffer_get();
+        //if (buf!=NULL)
+        //    sv_setpv(RETVAL,buf);
+    OUTPUT:
+        RETVAL
+
+
+#
+# ============================================== ICC_DataMsg_send_to_server
+#
 int
 ICC_DataMsg_send_to_server(picc)
     perl_iccObj_t * picc

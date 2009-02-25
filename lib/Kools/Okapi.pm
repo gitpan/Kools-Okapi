@@ -280,19 +280,34 @@ require AutoLoader;
       ICC_set
       ICC_get
       ICC_main_loop
-      
+      ICC_main_init
+      ICC_main_start
+      ICC_main_select
+      ICC_main_timeout
+      ICC_main_signal
+      ICC_main_message
+      ICC_main_disconnect
+      ICC_main_loop
+      ICC_multiple_main_start
+      ICC_multiple_main_message
+      ICC_multi_main_loop 
 
-      ICC_DataMsg_Buffer_get
       ICC_DataMsg_init
       ICC_DataMsg_set
-      ICC_DataMsg_get
+      ICC_DataMsg_String_set
       ICC_DataMsg_Integer_set
+      ICC_DataMsg_Float_set
+      ICC_DataMsg_Date_set
+      ICC_DataMsg_Choice_set
+      ICC_DataMsg_get
+
       ICC_DataMsg_Buffer_set
+      ICC_DataMsg_Buffer_get
       
       ICC_DataMsg_send_to_server
 );
 
-$VERSION = '2.6.3.L3.002';
+$VERSION = '263.003';
 
 bootstrap Kools::Okapi $VERSION;
 

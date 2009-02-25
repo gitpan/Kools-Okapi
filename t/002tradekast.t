@@ -34,11 +34,13 @@ my $icc;
 
 sub dataMsg_callBack($$$)
 {
-    print "In callBack  ";
+    print "In data_msg callBack  ";
     my $io=shift;
     my $key=shift;
     my $type=shift;
     print "  $io:$key:$type\n";
+    my $cd=ICC_get($io,Kools::Okapi::ICC_CLIENT_DATA);
+    print "  cd=$cd\n";
     
     SWITCH: # (type)
     {
@@ -73,6 +75,25 @@ sub dataMsg_callBack($$$)
     return Kools::Okapi::ICC_OK;
 }
 
+sub disconnect_callBack($)
+{
+    print "In disconnect callBack  ";
+    my $io=shift;
+    print "  $io\n";
+    
+    return Kools::Okapi::ICC_OK;
+}
+
+sub reconnect_callBack($)
+{
+    print "In reconnect callBack  ";
+    my $io=shift;
+    print "  $io\n";
+    
+    return Kools::Okapi::ICC_OK;
+}
+
+
 print "ICC_create:\n";
 $icc = ICC_create(
                   Kools::Okapi::ICC_CLIENT_NAME,           'EXPORT',
@@ -80,7 +101,12 @@ $icc = ICC_create(
                   Kools::Okapi::ICC_PORT_NAME,             'tradekast',
                   
                   Kools::Okapi::ICC_CLIENT_RECEIVE_ARRAY,  [ "SpotDeals", "FxSwapDeals", "ForwardDeals", "NeverCheckUserCode" ],
-                  Kools::Okapi::ICC_DATA_MSG_CALLBACK,    \&dataMsg_callBack);
+                  Kools::Okapi::ICC_DATA_MSG_CALLBACK,     \&dataMsg_callBack,
+                  Kools::Okapi::ICC_DISCONNECT_CALLBACK,   \&disconnect_callBack,
+                  Kools::Okapi::ICC_RECONNECT_CALLBACK,    \&reconnect_callBack);
+
+my $cd="Hello world";
+ICC_set($icc,Kools::Okapi::ICC_CLIENT_DATA,$cd);
 
 print "ok 1\n";
 ICC_set($icc,Kools::Okapi::ICC_CLIENT_READY, 1);

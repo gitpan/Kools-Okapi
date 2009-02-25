@@ -1,6 +1,12 @@
 # Changes log for Kools-Okapi
 =============================
 
+263.003   2009/02/25
+          - changed numbering scheme so something a bit more simple and user
+            friendly. It will still follow the Kondor+ version number with a
+            sequence number added. Will see how this evolves with time ...
+          - added most callbacks (still missing the SET_FDS callback)
+          - added ICC_main_xxx functions
 
 2.6.3.L3.002  2009/02/22
               - Now have a working tradekast and kis client (see the test
