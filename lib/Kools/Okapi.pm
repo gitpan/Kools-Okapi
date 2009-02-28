@@ -307,7 +307,7 @@ require AutoLoader;
       ICC_DataMsg_send_to_server
 );
 
-$VERSION = '263.003';
+$VERSION = '263.004';
 
 bootstrap Kools::Okapi $VERSION;
 

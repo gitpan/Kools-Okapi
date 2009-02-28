@@ -310,7 +310,7 @@ processCreateAndSetParameters(perl_iccObj_t *picc, int key, SV* attrib, SV* attr
 
         // a long (pointer, etc...)
         case ICC_CLIENT_DATA:
-            picc->clientData=attrib;
+            picc->clientData=newSVsv(attrib);
             break;
 
         // takes an array of strings
@@ -500,7 +500,7 @@ ICC_get(picc,attrib)
         switch (attrib) {
             // special attributes:
             case ICC_CLIENT_DATA:
-                RETVAL=picc->clientData;
+                sv_setsv(RETVAL,picc->clientData);
                 break;
 
             // these attributes take strings
@@ -630,42 +630,70 @@ ICC_main_disconnect(picc)
 
 
 #
-# ============================================== ICC_multiple_main_start  TODO
+# ============================================== ICC_multiple_main_start
 #
 ICC_status_t
-ICC_multiple_main_start(picc, nb)
-    perl_iccObj_t* picc
-    int            nb
+ICC_multiple_main_start(piccArr)
+    AV *piccArr
     CODE:
-        croak("ICC_multiple_main_start() not fully implemented yet...");
-        RETVAL = ICC_multiple_main_start(&picc->iccObj, 1);
+	    {
+	        I32 n, numElt;
+	        ICC_opaque *ar;
+	
+	        numElt=av_len(piccArr);
+	        ar=calloc(sizeof(ICC_opaque),numElt+1);
+	        for (n=0 ; n<=numElt ; ++n) {
+	            ar[n]=((perl_iccObj_t*)SvIV(*av_fetch(piccArr,n,0)))->iccObj;
+	        }
+	        RETVAL = ICC_multiple_main_start(ar, numElt);
+	    }
     OUTPUT:
 	    RETVAL
 
 
 #
-# ============================================== ICC_multiple_main_message  TODO
+# ============================================== ICC_multiple_main_message
 #
 ICC_status_t
-ICC_multiple_main_message(picc, nb)
-    perl_iccObj_t* picc
-    int            nb
+ICC_multiple_main_message(piccArr)
+    AV *piccArr
     CODE:
-        croak("ICC_multiple_main_message() not fully implemented yet...");
-        RETVAL = ICC_multiple_main_message(&picc->iccObj, 1);
+	    {
+	        I32 n, numElt;
+	        ICC_opaque *ar;
+	
+	        numElt=av_len(piccArr);
+	        ar=calloc(sizeof(ICC_opaque),numElt+1);
+	        for (n=0 ; n<=numElt ; ++n) {
+	            ar[n]=((perl_iccObj_t*)SvIV(*av_fetch(piccArr,n,0)))->iccObj;
+	        }
+	        RETVAL = ICC_multiple_main_message(ar, numElt);
+	    }
     OUTPUT:
 	    RETVAL
 
 
 #
-# ============================================== ICC_multiple_main_loop  TODO
+# ============================================== ICC_multi_main_loop
 #
 ICC_status_t
-ICC_multiple_main_loop(fPicc, nb)
-    perl_iccObj_t* fPicc = NO_INIT
+ICC_multi_main_loop(piccArr)
+    AV *piccArr
     CODE:
-        croak("ICC_multiple_main_loop() not fully implemented yet...");
-        RETVAL = ICC_multiple_main_loop(fPicc->iccObj, 1);
+	    {
+	        I32 n, numElt;
+	        ICC_opaque ar[6];
+	
+	        numElt=av_len(piccArr);
+	        if (numElt>4)
+	            croak("Sorry, but Perl implementation of ICC_multi_main_loop([]) can only take a maximum of 5 ICC objects!");
+	        
+	        for (n=0 ; n<=numElt ; ++n) {
+	            ar[n]=((perl_iccObj_t*)SvIV(*av_fetch(piccArr,n,0)))->iccObj;
+	        }
+	        ar[n]=0L;
+	        RETVAL = ICC_multi_main_loop(ar[0], ar[1], ar[2], ar[3], ar[4], ar[5], ar[6], NULL);
+	    }
     OUTPUT:
 	    RETVAL
 

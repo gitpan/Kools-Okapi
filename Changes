@@ -1,6 +1,13 @@
 # Changes log for Kools-Okapi
 =============================
 
+263.004
+          - implementated the ICC_multixxxxx functions. The Perl versions
+            just take an array of ICC objects.
+          - fixed a bug with client data (ICC_CLIENT_DATA). Works well now.
+            receives a scalar a a parameter, but that can be a reference to
+            an array, hash ...
+
 263.003   2009/02/25
           - changed numbering scheme so something a bit more simple and user
             friendly. It will still follow the Kondor+ version number with a
