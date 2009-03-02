@@ -1,7 +1,10 @@
 # Changes log for Kools-Okapi
 =============================
 
-263.004
+263.005   2009/03/02
+          - implemented the set_fds_callback and select_msg_callback functions.
+
+263.004   2009/02/28
           - implementated the ICC_multixxxxx functions. The Perl versions
             just take an array of ICC objects.
           - fixed a bug with client data (ICC_CLIENT_DATA). Works well now.

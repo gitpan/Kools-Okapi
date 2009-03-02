@@ -78,6 +78,78 @@ _data_msg_callback(ICC_opaque cd, char *key, ICC_Data_Msg_Type_t type)
     return retval;
 }
 
+
+/* ================================
+ *
+ * _set_fds_callback
+ *
+ * Generic callback registered for ICC_SET_FDS_CALLBACK events.
+ */
+static ICC_status_t
+_set_fds_callback(ICC_opaque cd, fd_set *r_fds, fd_set *w_fds, fd_set *e_fds)
+{
+    perl_iccObj_t *picc=(perl_iccObj_t*)cd;
+    dSP;
+
+    int count;
+    int retval;
+    
+    ENTER;SAVETMPS;
+    PUSHMARK(SP);
+
+    AV *readFD  = (AV*)sv_2mortal((SV*)newAV());
+    AV *writeFD = (AV*)sv_2mortal((SV*)newAV());
+    AV *errFD   = (AV*)sv_2mortal((SV*)newAV());
+
+    XPUSHs (sv_2mortal (newSViv ( cd)));
+    XPUSHs (sv_2mortal (newRV_inc((SV*)readFD)));
+    XPUSHs (sv_2mortal (newRV_inc((SV*)writeFD)));
+    XPUSHs (sv_2mortal (newRV_inc((SV*)errFD)));
+    PUTBACK;
+
+    count = call_sv(picc->set_fds_callback, G_SCALAR);
+    SPAGAIN;
+
+    if ( count!= 1 )
+        croak ("icc_set_fds_callback() returned more than one argument\n");
+
+    retval = POPi;
+
+    if (retval == ICC_OK) {
+        I32 n,numElt;
+        // read
+        numElt=av_len(readFD);
+        for (n=0 ; n<=numElt ; ++n) {
+            if (av_fetch(readFD,n,0) != NULL) {
+                int val=SvIV(*av_fetch(readFD,n,0));
+                FD_SET(val,r_fds);
+            }
+        }
+        // write
+        numElt=av_len(writeFD);
+        for (n=0 ; n<=numElt ; ++n) {
+            if (av_fetch(writeFD,n,0) != NULL) {
+                int val=SvIV(*av_fetch(writeFD,n,0));
+                FD_SET(val,w_fds);
+            }
+        }
+        // error
+        numElt=av_len(errFD);
+        for (n=0 ; n<=numElt ; ++n) {
+            if (av_fetch(errFD,n,0) != NULL) {
+                int val=SvIV(*av_fetch(errFD,n,0));
+                FD_SET(val,e_fds);
+            }
+        }
+	}
+
+    PUTBACK;
+    FREETMPS;
+    LEAVE;
+    return retval;
+}
+
+
 /* ================================
  *
  * _select_timeout_callback
@@ -166,15 +238,31 @@ _select_msg_callback(ICC_opaque cd, fd_set *r_fds, fd_set *w_fds, fd_set *e_fds)
     
     ENTER;SAVETMPS;
     PUSHMARK(SP);
+
+    AV *readFD  = (AV*)sv_2mortal((SV*)newAV());
+    AV *writeFD = (AV*)sv_2mortal((SV*)newAV());
+    AV *errFD   = (AV*)sv_2mortal((SV*)newAV());
+
+    int i;
+    for (i=0 ; i<FD_SETSIZE ; ++i) {
+        if (FD_ISSET(i,r_fds))
+            av_push(readFD,newSViv(i));
+    }
+    for (i=0 ; i<FD_SETSIZE ; ++i) {
+        if (FD_ISSET(i,w_fds))
+            av_push(writeFD,newSViv(i));
+    }
+    for (i=0 ; i<FD_SETSIZE ; ++i) {
+        if (FD_ISSET(i,e_fds))
+            av_push(errFD,newSViv(i));
+    }
+
+
     XPUSHs (sv_2mortal (newSViv ( cd)));
-    // TODO
-    // here we need to push vecs() where each bit set to one indicates an active channel - this makes it identical to the select() function of perl.
-    // not that vec manipulates a string so it should not be too hard to reproduce here ...
-    // note that fd_set caontains up to FD_SETSIZE bits.
-    // another alternative is to just read the bits and store them into an array a bit the way poll() does - this is probably the most elegant.
-    //int i;
-    //for (i=0 ; i<FD_SETSIZE ; ++i) ;
-    croak("Sorry but icc_select_msg_callback() is not fully functional yet ...\n");
+    XPUSHs (sv_2mortal (newRV_inc((SV*)readFD)));
+    XPUSHs (sv_2mortal (newRV_inc((SV*)writeFD)));
+    XPUSHs (sv_2mortal (newRV_inc((SV*)errFD)));
+
     PUTBACK;
 
     count = call_sv(picc->select_msg_callback, G_SCALAR);
@@ -351,8 +439,10 @@ processCreateAndSetParameters(perl_iccObj_t *picc, int key, SV* attrib, SV* attr
             sv_setsv (picc->data_msg_callback, attrib);
             break;
                      
-        case ICC_SET_FDS_CALLBACK: //TODO
-            croak("ICC_set(ICC_SET_FDS_CALLBACK,...) not yet implemented, sorry...");
+        case ICC_SET_FDS_CALLBACK:
+            if (ICC_OK != ICC_set(picc->iccObj,key,_set_fds_callback,NULL))
+                croak("ICC_set(ICC_SET_FDS_CALLBACK,....) failed\n");
+            sv_setsv (picc->set_fds_callback, attrib);
             break;
 
         case ICC_SELECT_TIMEOUT_CALLBACK:
